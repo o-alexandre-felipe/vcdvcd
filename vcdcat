@@ -29,18 +29,31 @@ Show only selected signals:
 
     vcdcat -x a.vcd top.module.signal1 top.module.signal2
 
-List all signals that contain the substring "top.":
-
-    vcdcat -l a.vcd top.
-
 This would show both:
 
     top.module.signal1
     top.module.signal2
 
+An equivalent command
+    vcdcat -x a.vcd 'top.module.signal{1,2}'
+    
+A broader class of signals is matched using a wildcard '*'
+    vcdcat -x a.vcd 'top.module.signal*'
+
+This would not include top.module.signal3 or top.module.signal_x
+
+An even broader class of signals is matched using a double wildcard '**'
+that matches signals in the submodules as well
+
+
+List all signals that starts with the substring "top.":
+
+    vcdcat -l a.vcd 'top.**'
+
+
 Now get the values for signals:
 
-    vcdcat a.vcd top.
+    vcdcat a.vcd 'top.**'
 """.format(
         f=sys.argv[0]),
         formatter_class=RawTextHelpFormatter,
@@ -59,21 +72,6 @@ Now get the values for signals:
         default=False,
         help='list signal names and quit',
     )
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        '-x',
-        '--exact',
-        action='store_true',
-        default=False,
-        help='signal names must match exactly, instead of the default substring match',
-    )
-    group.add_argument(
-        '-r',
-        '--regexp',
-        action='store_true',
-        default=False,
-        help='signal names are treated as Python regular expressions',
-    )
     parser.add_argument(
         'vcd_path',
         metavar='vcd-path'
@@ -85,37 +83,17 @@ Now get the values for signals:
         nargs='*'
     )
     args = parser.parse_args()
-    vcd = VCDVCD(args.vcd_path, only_sigs=True)
-    all_signals = vcd.signals
-    if args.signals:
-        selected_signals = []
-        for s in args.signals:
-            r = re.compile(s)
-            for a in all_signals:
-                if (
-                    (args.regexp and r.search(a)) or
-                    (args.exact and s == a) or
-                    (s in a)
-                ):
-                    selected_signals.append(a)
     if args.list:
-        if args.signals:
-            signals = selected_signals
-        else:
-            signals = all_signals
-        print('\n'.join(signals))
+        vcd = VCDVCD(args.vcd_path, signals=args.signals, only_sigs=True)
+        print('\n'.join(vcd.signals))
     else:
-        if args.signals:
-            signals = selected_signals
-        else:
-            signals = []
         if args.deltas:
             callbacks = vcdvcd.PrintDeltasStreamParserCallbacks()
         else:
             callbacks = vcdvcd.PrintDumpsStreamParserCallbacks()
         VCDVCD(
             args.vcd_path,
-            signals=signals,
+            signals=args.signals if args.signals else None,
             store_tvs=False,
             callbacks=callbacks,
         )
