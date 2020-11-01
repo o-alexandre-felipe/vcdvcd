@@ -7,7 +7,6 @@ from decimal import Decimal
 
 from pprint import PrettyPrinter
 pp = PrettyPrinter()
-print("This is the working vcdvcd")
 
 class SignalCollection(object):
     def __init__(self, l, separator='.'):
@@ -38,7 +37,6 @@ class SignalCollection(object):
           at least in my experience when I use a pattern I write it manually
           most of the time I will use one single pattern at a time.
         """
-        print(l)
         # pattern to match substrings that don't change scope
         # the the negative look-ahead avoids matching a separator
         # the . matches one single charachter at a time.
@@ -66,11 +64,9 @@ class SignalCollection(object):
                 return re.escape(s)
         for sig in l:
             parts = parts_re.findall(sig)
-            print(parts)
             if len(parts) == 1 and parts[0][0] == '':
                 self.literal = sig;
             self.re_signals.append('^' + ''.join(map(pattern_to_re, parts)) + '$')
-        print(self.re_signals)
         self.re_signals = map(re.compile, self.re_signals)
     def re(self):
         [str(p)]
@@ -220,7 +216,6 @@ class VCDVCD(object):
                     path = '.'.join(hier)
                     reference = path + '.' + name
                     if (reference in signals) or all_sigs:
-                        print('+' + reference)
                         self.signals.append(reference)
                         if identifier_code not in self.data:
                             self.data[identifier_code] = Signal(size, type)
