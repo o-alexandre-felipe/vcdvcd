@@ -210,7 +210,7 @@ class VCDVCD(object):
                 elif '$var' in line:
                     ls = line.split()
                     type = ls[1]
-                    size = ls[2]
+                    size = int(ls[2])
                     identifier_code = ls[3]
                     name = ''.join(ls[4:-1])
                     path = '.'.join(hier)
