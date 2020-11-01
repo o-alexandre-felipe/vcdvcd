@@ -7,6 +7,77 @@ from decimal import Decimal
 
 from pprint import PrettyPrinter
 pp = PrettyPrinter()
+print("This is the working vcdvcd")
+
+class SignalCollection(object):
+    def __init__(self, l, separator='.'):
+        """
+        Creates an abstract set of signal names, and patterns specified
+        with wildcards.
+
+        The wildcard '*' matches only names in one scope
+        The wildcard '**' matches names recursively
+        More specific matches can be expressed used a comma-separated
+        list of substrings enclosed by {}
+          e.g. op{1,2,3}.{i,o}_data_{i,q} would match 12 signals
+
+        The notion of hierarchy is not present in the VCD but we assume
+        an underlying hyerarchical design dumped with some hierarchy
+        separator, by default '.'
+
+        You can test if a signal is in a collection as `sig in collection`.
+        It was implemented to be efficient in two scenarios.
+
+        1) A big list of signals without wildcards.
+          The signals without wildcards are added to a python `set()`, 
+          if one imports a big list of signals it will work in constant time.
+          Rather than linear as would a list of strings.
+
+        2) a few patterns.
+          The patterns are preferred for convenience and are handcrafted.
+          at least in my experience when I use a pattern I write it manually
+          most of the time I will use one single pattern at a time.
+        """
+        print(l)
+        # pattern to match substrings that don't change scope
+        # the the negative look-ahead avoids matching a separator
+        # the . matches one single charachter at a time.
+        same_scope = '(?:(?!%s).)*' % re.escape(separator)
+        parts_re = re.compile(r'[^\\*{]+|[\\]\S*|{[^}]*}|[*]{1,2}')
+        # signals without wildcards arer placed in a separate set
+        # so that if a big list of signals is given the it will
+        # find a signal with O(1) complexity
+        self.literal = set();
+        # the regular expressions need to be tested one by one
+        # this could be more sophisticated, but I fear that adding
+        # more python code would make it slower in most cases.
+        self.re_signals = [];
+        # goes over the list of signals, if any contains wildcards
+        # builds a regular expression. But accept * as a literal
+        # character in verilog escaped names
+        def pattern_to_re(s):
+            if s[0] == '{' and s[-1] == '}':
+                return '(%s)' % '|'.join(map(re.escape, s[1:-1].split(',')));
+            elif s == '*':
+                return same_scope
+            elif s == '**':
+                return '.*'
+            else:
+                return re.escape(s)
+        for sig in l:
+            parts = parts_re.findall(sig)
+            print(parts)
+            if len(parts) == 1 and parts[0][0] == '':
+                self.literal = sig;
+            self.re_signals.append('^' + ''.join(map(pattern_to_re, parts)) + '$')
+        print(self.re_signals)
+        self.re_signals = map(re.compile, self.re_signals)
+    def re(self):
+        [str(p)]
+
+    def __contains__(self, v):
+        return v in self.literal or any(p.match(v) is not None for p in self.re_signals)
+
 
 class VCDVCD(object):
 
@@ -99,6 +170,9 @@ class VCDVCD(object):
 
         if signals is None:
             signals = []
+        else:
+            # this will enable match signals with wildcards
+            signals = SignalCollection(signals);
         if callbacks is None:
             callbacks = StreamParserCallbacks()
         all_sigs = not signals
@@ -132,7 +206,7 @@ class VCDVCD(object):
                 elif '$enddefinitions' in line:
                     if only_sigs:
                         break
-                    callbacks.enddefinitions(self, signals, cur_sig_vals)
+                    callbacks.enddefinitions(self, self.signals, cur_sig_vals)
                 elif '$scope' in line:
                     hier.append(line.split()[2])
                 elif '$upscope' in line:
@@ -146,6 +220,7 @@ class VCDVCD(object):
                     path = '.'.join(hier)
                     reference = path + '.' + name
                     if (reference in signals) or all_sigs:
+                        print('+' + reference)
                         self.signals.append(reference)
                         if identifier_code not in self.data:
                             self.data[identifier_code] = Signal(size, type)
@@ -406,7 +481,8 @@ def binary_string_to_hex(s):
     :param s: the string to be converted
     :type s: str
     """
+
     for c in s:
         if not c in '01':
             return c
-    return hex(int(s, 2))[2:]
+    return hex(int(s, 2))[2:].rstrip('L')
